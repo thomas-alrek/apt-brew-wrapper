@@ -1,0 +1,15 @@
+{
+  "name": "apt-brew-wrapper",
+  "version": "0.0.2",
+  "description": "A wrapper for homebrew",
+  "main": "apt-get.js",
+  "bin": {
+    "apt-get": "apt-get.js"
+  },
+  "preferGlobal": "true",
+  "author": "Thomas Alrek<thomas@alrek.no",
+  "license": "GPL-2.0",
+  "dependencies": {
+    "yargs": "^6.4.0"
+  }
+}
