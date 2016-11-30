@@ -5,47 +5,92 @@
  * @module apt-brew-wrapper
  */
 
-const argv = require('yargs');
-const exec = require('child_process').spawn;
 const sys = require('util');
+const argv = require('yargs');
+const username = require('username');
+const exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
 
-let mapper = {
-    update: 'update',
-    upgrade: 'upgrade',
-    'dist-upgrade': 'upgrade',
-    install: 'install',
-    remove: 'uninstall'
-}
-
-let cmd = [];
-
-cmd.push(mapper[process.argv[2]]);
-
-if(typeof cmd[0] === 'undefined'){
-    cmd[0] = process.argv[2];
-}
-
-if(typeof cmd[0] === 'undefined'){
-    cmd[0] = '--help';
-}
-
-for(let i = 3; i < process.argv.length; i++){
-    cmd.push(process.argv[i]);
-}
-
-let apt = exec('brew', cmd);
-
-apt.stdout.on('data', function (data) {
-    let stdout = data.toString();
+function replaceOutput(stdout){
     stdout = stdout.replace(/([ ]{2,})brew/gm, "$1apt-get");
     stdout = stdout.replace(/FORMULA/gm, "PACKAGE");
-    process.stdout.write(stdout);
-});
+    stdout = stdout.replace(/Homebrew/gm, 'package list');
+    stdout = stdout.replace(/tap/gm, 'repository');
+    stdout = stdout.replace(/Formulae/gm, 'package');
+    stdout = stdout.replace(/Pouring/gm, 'Installing');
+    stdout = stdout.replace(/🍺  /gm, '');
+    return stdout;
+}
 
-apt.stderr.on('data', function (data) {
-    process.stderr.write(data.toString());
-});
+let checkUser = new Promise((outerResolve, outerReject) => {
+    //Check if invoked as root
+    if(process.getuid() === 0){
 
-apt.on('exit', function (code) {
-    process.exit(code);
+        username().then(username => {
+            let getGid = new Promise((resolve, reject) => {
+                var getGid = exec("id -g " + username, (error, stdout, stderr) => {
+                    if (error) {
+                        reject();
+                    }
+                    resolve(parseInt(stdout));
+                });
+            }).then(gid => {
+                try{
+                    process.setgid(gid);
+                    process.setuid(username);
+                    outerResolve();
+                }catch(err){
+                    outerReject('Cowardly refusing to run the process as root.');
+                }
+            }, () => {
+                outerReject('Unable to get group id');
+            });
+        }, () => {
+            outerReject('Unable to get username');
+        });
+    }
+    outerResolve();
+}).then(() => {
+    let mapper = {
+        update: 'update',
+        upgrade: 'upgrade',
+        'dist-upgrade': 'upgrade',
+        install: 'install',
+        remove: 'uninstall'
+    }
+
+    let cmd = [];
+
+    cmd.push(mapper[process.argv[2]]);
+
+    if(typeof cmd[0] === 'undefined'){
+        cmd[0] = process.argv[2];
+    }
+
+    if(typeof cmd[0] === 'undefined'){
+        cmd[0] = '--help';
+    }
+
+    for(let i = 3; i < process.argv.length; i++){
+        cmd.push(process.argv[i]);
+    }
+
+    let apt = spawn('brew', cmd);
+
+    apt.stdout.on('data', function (data) {
+        let stdout = replaceOutput(data.toString());
+        process.stdout.write(stdout);
+    });
+
+    apt.stderr.on('data', function (data) {
+        let stderr = replaceOutput(data.toString());
+        process.stderr.write(stderr);
+    });
+
+    apt.on('exit', function (code) {
+        process.exit(code);
+    });
+}, (err) => {
+    process.stderr.write(err + "\n");
+    process.exit(1);
 });

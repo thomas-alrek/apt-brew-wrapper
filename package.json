@@ -1,6 +1,6 @@
 {
   "name": "apt-brew-wrapper",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A wrapper for homebrew",
   "main": "apt-get.js",
   "bin": {
@@ -10,6 +10,7 @@
   "author": "Thomas Alrek<thomas@alrek.no",
   "license": "GPL-2.0",
   "dependencies": {
+    "username": "^2.2.2",
     "yargs": "^6.4.0"
   }
 }
